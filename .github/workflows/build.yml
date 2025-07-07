@@ -1,19 +1,20 @@
 name: Build koolcenter Package
 
 on:
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
   push:
-    branches: [ main ]  # 推送到main分支时触发
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     
     steps:
-    - name: Checkout code
+    - name: Checkout code (with full history)
       uses: actions/checkout@v4
       with:
-        ref: 1dfda1410a17ad1e469e1283f0ba150fc68a2612  # 锁定特定提交
+        ref: 1dfda1410a17ad1e469e1283f0ba150fc68a2612
+        fetch-depth: 0  # 获取完整历史，解决浅克隆问题
     
     - name: Setup build environment
       run: |
@@ -25,28 +26,42 @@ jobs:
           libssl-dev zlib1g-dev
         
     - name: Navigate to koolcenter
-      run: cd koolcenter
+      run: |
+        cd koolcenter
+        ls -la  # 列出文件以验证目录结构
+      
+    - name: Debug environment
+      run: |
+        echo "Current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        echo "Build script exists:"
+        test -f build_hnd.sh && echo "Yes" || echo "No"
       
     - name: Make build script executable
       run: chmod +x build_hnd.sh
       
     - name: Execute build script
-      run: ./build_hnd.sh
+      run: |
+        echo "Running build script..."
+        ./build_hnd.sh || (echo "Build failed with status $?"; exit 1)
       
     - name: Find and archive package
       run: |
         # 查找生成的tar.gz文件
         PKG=$(find . -name "*.tar.gz" -print -quit)
         if [ -z "$PKG" ]; then
-          echo "::error::No package file found!"
+          echo "::error::No package file found! Listing all files:"
+          find . -type f
           exit 1
         fi
         echo "Found package: $PKG"
         # 重命名以便识别
-        mv "$PKG" koolcenter_build.tar.gz
+        mv -v "$PKG" koolcenter_build.tar.gz
+        ls -lh koolcenter_build.tar.gz  # 显示文件信息
         
     - name: Upload artifact
-      uses: actions/upload-artifact@v4  # 更新到 v4
+      uses: actions/upload-artifact@v4
       with:
         name: koolcenter-package
         path: koolcenter/koolcenter_build.tar.gz
