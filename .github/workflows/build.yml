@@ -38,27 +38,23 @@ jobs:
         touch to_remove.txt
         chmod +x build_hnd.sh
       
-    - name: Bypass platform check in install.sh
+    - name: Bypass platform check and fix find command
       run: |
         cd koolcenter
         
-        # 确认 install.sh 的路径
-        echo "查找 install.sh 文件..."
-        find . -name install.sh
+        # 修复平台检测
+        echo "修改 softcenter/install.sh 绕过平台检测..."
+        sed -i '/platform_test()/{:a;N;/^}$/!ba; s/.*/platform_test(){\n\techo_date "⚠️ 已跳过平台检测，强制安装！"\n}/}' softcenter/install.sh
         
-        # 修复路径：install.sh 在 scripts 目录下
-        if [ -f "scripts/install.sh" ]; then
-            echo "找到 install.sh 在 scripts 目录下，开始修改..."
-            sed -i '/platform_test()/{:a;N;/^}$/!ba; s/.*/platform_test(){\n\techo_date "⚠️ 已跳过平台检测，强制安装！"\n}/}' scripts/install.sh
-            
-            echo "修改后的 platform_test 函数:"
-            grep -A 2 "platform_test()" scripts/install.sh
-        else
-            echo "错误：找不到 install.sh 文件！"
-            echo "当前目录内容:"
-            ls -la
-            exit 1
-        fi
+        # 修复 find 命令兼容性问题
+        echo "修复 find 命令兼容性..."
+        sed -i 's/find -L \/koolshare\/ -type l | xargs rm -rf/# 修复BusyBox兼容性问题\nfor link in $(ls -l /koolshare/ | grep "^l" | awk "{print \\\$9}"); do\n    if [ ! -e "/koolshare/\\\$link" ]; then\n        rm -rf "/koolshare/\\\$link"\n    fi\ndone/' softcenter/install.sh
+        
+        # 验证修改
+        echo "修改后的 platform_test 函数:"
+        grep -A 2 "platform_test()" softcenter/install.sh
+        echo "修改后的 find 命令:"
+        grep -A 5 "修复BusyBox兼容性问题" softcenter/install.sh
       
     - name: Execute build script
       run: |
