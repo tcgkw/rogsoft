@@ -10,11 +10,12 @@ jobs:
     runs-on: ubuntu-22.04
     
     steps:
-    - name: Checkout code (with full history)
+    - name: Checkout code (skip submodules)
       uses: actions/checkout@v4
       with:
         ref: 1dfda1410a17ad1e469e1283f0ba150fc68a2612
-        fetch-depth: 0  # 获取完整历史，解决浅克隆问题
+        fetch-depth: 0
+        submodules: false  # 完全跳过子模块初始化
     
     - name: Setup build environment
       run: |
@@ -25,29 +26,31 @@ jobs:
           bison flex git wget unzip \
           libssl-dev zlib1g-dev
         
-    - name: Navigate to koolcenter
+    - name: Navigate to koolcenter and remove problematic submodule
       run: |
         cd koolcenter
-        ls -la  # 列出文件以验证目录结构
-      
-    - name: Debug environment
-      run: |
-        echo "Current directory: $(pwd)"
-        echo "Directory contents:"
-        ls -la
-        echo "Build script exists:"
-        test -f build_hnd.sh && echo "Yes" || echo "No"
+        
+        # 移除有问题的子模块引用
+        git config --local --remove-section submodule.softcenter/legacy/shell || true
+        rm -rf .git/modules/softcenter/legacy/shell || true
+        sed -i '/softcenter\/legacy\/shell/d' .gitmodules || true
+        [ -s .gitmodules ] || rm -f .gitmodules
+        
+        ls -la  # 验证目录结构
       
     - name: Make build script executable
       run: chmod +x build_hnd.sh
       
     - name: Execute build script
       run: |
+        cd koolcenter
         echo "Running build script..."
         ./build_hnd.sh || (echo "Build failed with status $?"; exit 1)
       
     - name: Find and archive package
       run: |
+        cd koolcenter
+        
         # 查找生成的tar.gz文件
         PKG=$(find . -name "*.tar.gz" -print -quit)
         if [ -z "$PKG" ]; then
@@ -55,10 +58,10 @@ jobs:
           find . -type f
           exit 1
         fi
+        
         echo "Found package: $PKG"
-        # 重命名以便识别
         mv -v "$PKG" koolcenter_build.tar.gz
-        ls -lh koolcenter_build.tar.gz  # 显示文件信息
+        ls -lh koolcenter_build.tar.gz
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
