@@ -10,13 +10,15 @@ jobs:
     runs-on: ubuntu-22.04
     
     steps:
-    - name: Checkout code (skip submodules)
+    - name: Checkout code
       uses: actions/checkout@v4
       with:
         ref: 1dfda1410a17ad1e469e1283f0ba150fc68a2612
-        fetch-depth: 0
-        submodules: false  # 完全跳过子模块初始化
-    
+        fetch-depth: 1  # 浅层克隆
+        
+    - name: Remove .git to prevent submodule issues
+      run: rm -rf .git  # 彻底移除git相关文件
+      
     - name: Setup build environment
       run: |
         sudo apt-get update
@@ -26,42 +28,20 @@ jobs:
           bison flex git wget unzip \
           libssl-dev zlib1g-dev
         
-    - name: Navigate to koolcenter and remove problematic submodule
+    - name: Prepare build directory
       run: |
         cd koolcenter
-        
-        # 移除有问题的子模块引用
-        git config --local --remove-section submodule.softcenter/legacy/shell || true
-        rm -rf .git/modules/softcenter/legacy/shell || true
-        sed -i '/softcenter\/legacy\/shell/d' .gitmodules || true
-        [ -s .gitmodules ] || rm -f .gitmodules
-        
-        ls -la  # 验证目录结构
-      
-    - name: Make build script executable
-      run: chmod +x build_hnd.sh
+        chmod +x build_hnd.sh
       
     - name: Execute build script
       run: |
         cd koolcenter
-        echo "Running build script..."
-        ./build_hnd.sh || (echo "Build failed with status $?"; exit 1)
-      
-    - name: Find and archive package
+        ./build_hnd.sh
+        
+    - name: Archive package
       run: |
         cd koolcenter
-        
-        # 查找生成的tar.gz文件
-        PKG=$(find . -name "*.tar.gz" -print -quit)
-        if [ -z "$PKG" ]; then
-          echo "::error::No package file found! Listing all files:"
-          find . -type f
-          exit 1
-        fi
-        
-        echo "Found package: $PKG"
-        mv -v "$PKG" koolcenter_build.tar.gz
-        ls -lh koolcenter_build.tar.gz
+        mv $(find . -name "*.tar.gz" -print -quit) koolcenter_build.tar.gz
         
     - name: Upload artifact
       uses: actions/upload-artifact@v4
