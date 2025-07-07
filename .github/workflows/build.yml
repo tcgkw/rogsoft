@@ -32,36 +32,33 @@ jobs:
     - name: Fix Python 2 scripts
       run: |
         cd koolcenter
-        
-        # 修复 gen_install.py
         sed -i '1s|^.*$|#!/usr/bin/env python2|' gen_install.py
         sed -i 's|print \(.*\)|print(\1)|g' gen_install.py
         chmod +x gen_install.py
-        
-        # 修复 to_remove.txt 问题
         touch to_remove.txt
-        
-        # 确保构建脚本可执行
         chmod +x build_hnd.sh
-        
-        # 验证修复
-        head -n 5 gen_install.py
-        ls -l to_remove.txt
-
-
+      
     - name: Bypass platform check in install.sh
       run: |
         cd koolcenter
-        echo "Patching install.sh to bypass platform check..."
         
-        # 完全重写 platform_test 函数
-        sed -i '/platform_test()/{:a;N;/^}$/!ba; s/.*/platform_test(){\n\techo_date "⚠️ 已跳过平台检测，强制安装！"\n}/}' scripts/install.sh
+        # 确认 install.sh 的路径
+        echo "查找 install.sh 文件..."
+        find . -name install.sh
         
-        # 验证修改
-        echo "Patched platform_test function:"
-        grep -A 2 "platform_test()" scripts/install.sh
-
-    
+        # 修复路径：install.sh 在 scripts 目录下
+        if [ -f "scripts/install.sh" ]; then
+            echo "找到 install.sh 在 scripts 目录下，开始修改..."
+            sed -i '/platform_test()/{:a;N;/^}$/!ba; s/.*/platform_test(){\n\techo_date "⚠️ 已跳过平台检测，强制安装！"\n}/}' scripts/install.sh
+            
+            echo "修改后的 platform_test 函数:"
+            grep -A 2 "platform_test()" scripts/install.sh
+        else
+            echo "错误：找不到 install.sh 文件！"
+            echo "当前目录内容:"
+            ls -la
+            exit 1
+        fi
       
     - name: Execute build script
       run: |
@@ -74,7 +71,7 @@ jobs:
         PKG=$(find . -name "*.tar.gz" -print -quit)
         if [ -n "$PKG" ]; then
           mv "$PKG" koolcenter_build.tar.gz
-          ls -lh koolcenter_build.tar.gz
+          echo "Package size: $(du -h koolcenter_build.tar.gz)"
         else
           echo "::error::No package file found!"
           find . -type f
