@@ -47,6 +47,21 @@ jobs:
         # 验证修复
         head -n 5 gen_install.py
         ls -l to_remove.txt
+
+
+    - name: Bypass platform check in install.sh
+      run: |
+        cd koolcenter
+        echo "Patching install.sh to bypass platform check..."
+        
+        # 完全重写 platform_test 函数
+        sed -i '/platform_test()/{:a;N;/^}$/!ba; s/.*/platform_test(){\n\techo_date "⚠️ 已跳过平台检测，强制安装！"\n}/}' scripts/install.sh
+        
+        # 验证修改
+        echo "Patched platform_test function:"
+        grep -A 2 "platform_test()" scripts/install.sh
+
+    
       
     - name: Execute build script
       run: |
