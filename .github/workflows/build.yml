@@ -1,0 +1,51 @@
+name: Build koolcenter Package
+
+on:
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches: [ main ]  # 推送到main分支时触发
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04  # 推荐使用稳定版本
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: 1dfda1410a17ad1e469e1283f0ba150fc68a2612  # 锁定特定提交
+    
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          automake autoconf libtool \
+          bison flex git wget unzip
+        
+    - name: Navigate to koolcenter
+      run: cd koolcenter
+      
+    - name: Make build script executable
+      run: chmod +x build_hnd.sh
+      
+    - name: Execute build script
+      run: ./build_hnd.sh
+      
+    - name: Find and archive package
+      run: |
+        # 查找生成的tar.gz文件
+        PKG=$(find . -name "*.tar.gz" -print -quit)
+        if [ -z "$PKG" ]; then
+          echo "::error::No package file found!"
+          exit 1
+        fi
+        echo "Found package: $PKG"
+        # 重命名以便识别
+        mv "$PKG" koolcenter_build.tar.gz
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: koolcenter-package
+        path: koolcenter/koolcenter_build.tar.gz
